@@ -15,11 +15,11 @@ settings_filename = "auto_save.sublime-settings"
 
 on_modified_field = "auto_save_on_modified"
 delay_field = "auto_save_delay_in_seconds"
+save_when_autocompleting_field = "save_when_autocompleting"
 all_files_field = "auto_save_all_files"
 current_file_field = "auto_save_current_file"
 backup_field = "auto_save_backup"
 backup_suffix_field = "auto_save_backup_suffix"
-
 
 
 class AutoSaveListener(sublime_plugin.EventListener):
@@ -47,15 +47,19 @@ class AutoSaveListener(sublime_plugin.EventListener):
     current_file = settings.get(current_file_field)
     backup = settings.get(backup_field)
     backup_suffix = settings.get(backup_suffix_field)
+    save_when_autocompleting = settings.get(save_when_autocompleting_field)
 
     if not all_files and current_file != view.file_name():
       return
-
 
     def callback():
       '''
       Must use this callback for ST2 compatibility
       '''
+      if not save_when_autocompleting and view.is_auto_complete_visible():
+        enqueue_save()
+        return
+
       if view.is_dirty() and not view.is_loading():
         if not backup: # Save file
           view.run_command("save")
@@ -85,9 +89,11 @@ class AutoSaveListener(sublime_plugin.EventListener):
         sublime.set_timeout(callback, 0)
         AutoSaveListener.save_queue = []
 
+    def enqueue_save():
+      AutoSaveListener.save_queue.append(0) # Append to queue for every on_modified event.
+      Timer(delay, debounce_save).start() # Debounce save by the specified delay.
 
-    AutoSaveListener.save_queue.append(0) # Append to queue for every on_modified event.
-    Timer(delay, debounce_save).start() # Debounce save by the specified delay.
+    enqueue_save()
 
 
 
